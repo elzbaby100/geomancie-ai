@@ -2,113 +2,47 @@ import streamlit as st
 import random
 from openai import OpenAI
 
-# --- CONFIGURATION DE LA PAGE ---
-st.set_page_config(
-    page_title="Le Grand Maître Géomancie",
-    page_icon="🔮",
-    layout="wide"
-)
+st.set_page_config(page_title="Le Grand Maître", page_icon="🔮")
 
-# --- BASE DE DONNÉES DES FIGURES ---
-FIGURES_DB = {
-    1: {"nom": "Youssouf", "latin": "Rubeus", "element": "Feu", "points": 5},
-    2: {"nom": "Adama", "latin": "Laetitia", "element": "Eau", "points": 4},
-    3: {"nom": "Mahdiou", "latin": "Caput Draconis", "element": "Terre", "points": 5},
-    4: {"nom": "Idrissa", "latin": "Albus", "element": "Eau", "points": 4},
-    5: {"nom": "Ibrahima", "latin": "Via", "element": "Air", "points": 4},
-    6: {"nom": "Issa", "latin": "Amissio", "element": "Eau", "points": 4},
-    7: {"nom": "Oumar", "latin": "Puer", "element": "Feu", "points": 5},
-    8: {"nom": "Ayyoub", "latin": "Tristitia", "element": "Eau", "points": 4},
-    9: {"nom": "Allahou Tall", "latin": "Fortuna Minor", "element": "Feu", "points": 5},
-    10: {"nom": "Souleymane", "latin": "Carcer", "element": "Terre", "points": 6},
-    11: {"nom": "Ali", "latin": "Conjunctio", "element": "Air", "points": 6},
-    12: {"nom": "Nouhou", "latin": "Fortuna Major", "element": "Terre", "points": 6},
-    13: {"nom": "Housseynou", "latin": "Puella", "element": "Eau", "points": 4},
-    14: {"nom": "Younouss", "latin": "Puella", "element": "Air", "points": 4},
-    15: {"nom": "Ousmane", "latin": "Acquisitio", "element": "Air", "points": 6},
-    16: {"nom": "Moussa", "latin": "Populus", "element": "Eau", "points": 8}
+FIGURES = {
+    1: {"nom": "Youssouf", "element": "Feu"}, 2: {"nom": "Adama", "element": "Eau"},
+    3: {"nom": "Mahdiou", "element": "Terre"}, 4: {"nom": "Idrissa", "element": "Eau"},
+    5: {"nom": "Ibrahima", "element": "Air"}, 6: {"nom": "Issa", "element": "Eau"},
+    7: {"nom": "Oumar", "element": "Feu"}, 8: {"nom": "Ayyoub", "element": "Eau"},
+    9: {"nom": "Allahou Tall", "element": "Feu"}, 10: {"nom": "Souleymane", "element": "Terre"},
+    11: {"nom": "Ali", "element": "Air"}, 12: {"nom": "Nouhou", "element": "Terre"},
+    13: {"nom": "Housseynou", "element": "Eau"}, 14: {"nom": "Younouss", "element": "Air"},
+    15: {"nom": "Ousmane", "element": "Air"}, 16: {"nom": "Moussa", "element": "Eau"}
 }
 
-# --- PROMPT SYSTÈME V5.1 ---
-SYSTEM_PROMPT = """
-TU ES LE GRAND MAÎTRE DU RAMLI AFRICAIN V5.1.
-Tu es une IA experte en géomancie africaine appliquée au football.
+PROMPT = "Tu es un expert en géomancie africaine. Analyse ce thème pour le match et donne: vainqueur, score, buts, incidents."
 
-RÈGLES IMPÉRATIVES :
-1. Si Dominante TERRE/EAU -> Match Fermé (Under 2.5)
-2. Si Dominante FEU/AIR -> Match Ouvert (Over 2.5)
-3. Oumar + Al Hassan + Ayyoub = Carton Rouge probable
-4. Oumar + Allahou Tall = Pénalty probable
-5. Souleymane en M1 = Défense de fer
-6. Issa en M10 = Perte/Nul
+st.title("🔮 Le Grand Maître")
+api_key = st.sidebar.text_input("Clé API", type="password")
+equipes = st.columns(2)
+domicile = equipes[0].text_input("Domicile", "Everton")
+exterieur = equipes[1].text_input("Extérieur", "Liverpool")
 
-Donne une analyse structurée avec : Fiabilité, Dominante, Pronostic, Score Exact, Incidents.
-"""
+if st.button("🎲 Tirage"):
+    st.session_state.tirage = {f"M{i+1}": FIGURES[random.randint(1,16)] for i in range(16)}
 
-# --- INTERFACE ---
-st.title("🔮 Le Grand Maître - Interpréteur Géomancie")
-st.markdown("---")
-
-with st.sidebar:
-    st.header("⚙️ Paramètres")
-    api_key = st.text_input("🔑 Clé API Groq", type="password")
-    custom_prompt = st.text_area("Prompt Système", value=SYSTEM_PROMPT, height=150)
-
-col1, col2 = st.columns(2)
-with col1:
-    team_home = st.text_input("🏠 Équipe Domicile", "Everton")
-with col2:
-    team_away = st.text_input("✈️ Équipe Extérieur", "Liverpool")
-
-st.subheader("🎲 Tirage des 16 Figures")
-
-if st.button("🎲 Lancer le Tirage Hasard"):
-    random.seed()
-    tirage = [random.randint(1, 16) for _ in range(16)]
-    
-    figures_result = {}
-    for i, num in enumerate(tirage):
-        figures_result[f"M{i+1}"] = FIGURES_DB[num]
-    st.session_state['tirage'] = figures_result
-    st.success("Tirage effectué !")
-
-if 'tirage' in st.session_state:
-    st.subheader("📜 Le Thème Géomantique")
-    
+if "tirage" in st.session_state:
+    st.write("### Thème")
     cols = st.columns(2)
+    for i, (k, v) in enumerate(st.session_state.tirage.items()):
+        cols[i%2].write(f"{k}: {v['nom']}")
     
-    for idx, (key, val) in enumerate(st.session_state['tirage'].items()):
-        with cols[idx % 2]:
-            emoji = "🔥" if val['element'] == "Feu" else ("💧" if val['element'] == "Eau" else ("💨" if val['element'] == "Air" else "⛰️"))
-            st.markdown(f"**{key}** : {val['nom']} *({val['latin']})* {emoji}")
+    if api_key and st.button("🧠 Analyser"):
+        try:
+            client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+            theme = "\n".join([f"{k}: {v['nom']}" for k,v in st.session_state.tirage.items()])
             
-    st.markdown("---")
-    
-    if api_key:
-        if st.button("🧠 Analyser avec l'IA (Grand Maître V5.1)", type="primary"):
-            with st.spinner("Le Grand Maître consulte les astres..."):
-                try:
-                        if api_key and st.button("🧠 Analyser"):
-        with st.spinner("Le Grand Maître réfléchit..."):
-            try:
-                # Connexion à Groq
-                client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
-                
-                theme_str = "\n".join([f"{k}: {v['nom']} ({v['element']})" for k,v in st.session_state['tirage'].items()])
-                
-                # On utilise LE modèle qui fonctionne actuellement (Llama 3.1 8B)
-                reponse = client.chat.completions.create(
+            with st.spinner("Analyse..."):
+                rep = client.chat.completions.create(
                     model="llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": f"Match: {team_home} vs {team_away}\n\nThème:\n{theme_str}"}
-                    ]
+                    messages=[{"role": "user", "content": f"Match {domicile} vs {exterieur}\n{theme}\n{PROMPT}"}]
                 )
-                
-                st.success("✅ Analyse réussie !")
-                st.subheader("🔮 Interprétation")
-                st.write(reponse.choices[0].message.content)
-
-            except Exception as e:
-                st.error(f"Erreur : {e}")
-                st.info("💡 Conseil : Vérifie que ta clé API commence bien par 'gsk_'")
+            st.success("✅")
+            st.write(rep.choices[0].message.content)
+        except Exception as e:
+            st.error(f"Erreur: {e}")
