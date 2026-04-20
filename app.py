@@ -135,7 +135,8 @@ if 'tirage' in st.session_state:
                     client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1") # Utilisation de Groq (Rapide/Gratuit)
                     
                     response = client.chat.completions.create(
-                        model="llama-3.1-70b-versatile", # Modèle puissant et gratuit sur Groq
+                        model=, model="llama-3.1-70b-versatile",  # Change en:
+# model="llama3-70b-8192",  # ✅ Nouveau modèle recommandé 
                         messages=[
                             {"role": "system", "content": custom_prompt},
                             {"role": "user", "content": f"Match: {team_home} vs {team_away}. \n\nVoici le thème :\n{theme_data}"}
