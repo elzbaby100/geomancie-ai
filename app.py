@@ -88,23 +88,27 @@ if 'tirage' in st.session_state:
         if st.button("🧠 Analyser avec l'IA (Grand Maître V5.1)", type="primary"):
             with st.spinner("Le Grand Maître consulte les astres..."):
                 try:
-                    theme_data = "\n".join([f"{k}: {v['nom']} ({v['element']})" for k, v in st.session_state['tirage'].items()])
-                    
-                    client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
-                    
-                    response = client.chat.completions.create(
-                        model="llama3-70b-8192",
-                        messages=[
-                            {"role": "system", "content": custom_prompt},
-                            {"role": "user", "content": f"Match: {team_home} vs {team_away}. \n\nThème:\n{theme_data}"}
-                        ],
-                        temperature=0.7
-                    )
-                    
-                    st.subheader("🔮 Interprétation du Grand Maître")
-                    st.markdown(response.choices[0].message.content)
-                    
-                except Exception as e:
-                    st.error(f"Erreur IA : {e}")
-    else:
-        st.warning("⚠️ Entrez une clé API dans le menu latéral")
+                        if api_key and st.button("🧠 Analyser"):
+        with st.spinner("Le Grand Maître réfléchit..."):
+            try:
+                # Connexion à Groq
+                client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+                
+                theme_str = "\n".join([f"{k}: {v['nom']} ({v['element']})" for k,v in st.session_state['tirage'].items()])
+                
+                # On utilise LE modèle qui fonctionne actuellement (Llama 3.1 8B)
+                reponse = client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": f"Match: {team_home} vs {team_away}\n\nThème:\n{theme_str}"}
+                    ]
+                )
+                
+                st.success("✅ Analyse réussie !")
+                st.subheader("🔮 Interprétation")
+                st.write(reponse.choices[0].message.content)
+
+            except Exception as e:
+                st.error(f"Erreur : {e}")
+                st.info("💡 Conseil : Vérifie que ta clé API commence bien par 'gsk_'")
