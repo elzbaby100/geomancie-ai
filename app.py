@@ -4,7 +4,6 @@ from openai import OpenAI
 
 st.set_page_config(page_title="Le Grand Maître", page_icon="🔮", layout="wide")
 
-# Base des figures
 FIGURES = {
     1: {"nom": "Youssouf", "element": "Feu"}, 2: {"nom": "Adama", "element": "Eau"},
     3: {"nom": "Mahdiou", "element": "Terre"}, 4: {"nom": "Idrissa", "element": "Eau"},
@@ -37,11 +36,20 @@ st.title("🔮 Le Grand Maître - Géomancie Football")
 
 with st.sidebar:
     st.header("⚙️ Configuration")
-    api_key = st.text_input("🔑 Clé API Groq", type="password")
+    
+    # 🔑 GESTION AUTOMATIQUE DE LA CLÉ API
+    api_key = st.secrets.get("GROQ_API_KEY", None)
+    if not api_key:
+        api_key = st.text_input("🔑 Clé API Groq", type="password", value=st.session_state.get("temp_key", ""))
+        if api_key:
+            st.session_state.temp_key = api_key
+            st.success("🔑 Clé active pour cette session")
+    else:
+        st.success("🔑 Clé chargée automatiquement (sécurisée)")
     
     st.markdown("---")
-    st.subheader("📜 Éducation IA (Règles)")
-    new_prompt = st.text_area("Prompt Système", value=st.session_state.system_prompt, height=200)
+    st.subheader("📜 Éducation IA")
+    new_prompt = st.text_area("Prompt Système", value=st.session_state.system_prompt, height=180)
     if st.button("💾 Sauvegarder les règles"):
         st.session_state.system_prompt = new_prompt
         st.success("✅ Règles mises à jour !")
@@ -52,7 +60,7 @@ with col1:
 with col2:
     team_away = st.text_input("✈️ Extérieur", "Liverpool")
 
-if st.button("🎲 Lancer un Tirage Aléatoire"):
+if st.button("🎲 Lancer un Tirage"):
     st.session_state.tirage = {f"M{i+1}": FIGURES[random.randint(1, 16)] for i in range(16)}
     st.session_state.last_theme = "\n".join([f"{k}: {v['nom']} ({v['element']})" for k, v in st.session_state.tirage.items()])
     st.success("✅ Thème généré !")
@@ -70,7 +78,6 @@ if "tirage" in st.session_state:
             with st.spinner("Le Grand Maître consulte les astres..."):
                 try:
                     client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
-                    
                     rep = client.chat.completions.create(
                         model="llama-3.1-8b-instant",
                         messages=[
@@ -85,57 +92,37 @@ if "tirage" in st.session_state:
                 except Exception as e:
                     st.error(f"❌ Erreur: {e}")
     else:
-        st.warning("⚠️ Entre ta clé API dans le menu latéral.")
+        st.warning("⚠️ Ajoute ta clé dans secrets.toml ou via le champ ci-dessus.")
 
-# 🆕 NOUVEAU MODULE : CORRECTION & APPRENTISSAGE POST-MATCH
+# MODULE POST-MATCH
 if "last_prediction" in st.session_state and st.session_state.last_prediction:
     st.markdown("---")
-    with st.expander("🔄 Match terminé ? Corrige l'IA ici pour qu'elle apprenne."):
-        st.info("Entre le résultat réel pour que l'IA analyse son erreur et génère une nouvelle règle.")
-        real_score = st.text_input("Score final réel (ex: 1-2)")
-        real_events = st.text_area("Événements clés (buts, cartons, VAR, pénalty, annulations)")
+    with st.expander("🔄 Match terminé ? Corrige l'IA ici"):
+        st.info("Entre le résultat réel pour générer une nouvelle règle.")
+        real_score = st.text_input("Score final réel")
+        real_events = st.text_area("Événements clés (VAR, cartons, pénaltys...)")
         
-        if st.button("🧠 Analyser l'erreur & Générer une correction"):
-            if real_score and real_events:
-                with st.spinner("Analyse post-match en cours..."):
+        if st.button("🧠 Analyser l'erreur & Générer une règle"):
+            if real_score and real_events and api_key:
+                with st.spinner("Analyse post-match..."):
                     try:
                         client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
-                        correction_prompt = f"""
-                        Tu es un expert en géomancie africaine. 
-                        Voici le thème généré, la prédiction faite par l'IA, et le résultat réel du match.
+                        prompt_corr = f"""
+                        Tu es expert en géomancie africaine.
+                        THÈME: {st.session_state.last_theme}
+                        PRÉDICTION IA: {st.session_state.last_prediction}
+                        RÉSULTAT RÉEL: Score {real_score} | Événements: {real_events}
                         
-                        THÈME:
-                        {st.session_state.last_theme}
-                        
-                        PRÉDICTION IA:
-                        {st.session_state.last_prediction}
-                        
-                        RÉSULTAT RÉEL:
-                        Score: {real_score}
-                        Événements: {real_events}
-                        
-                        TÂCHE:
-                        1. Explique brièvement POURQUOI la prédiction a échoué (quelle figure/combinaison a été mal lue).
-                        2. Propose UNE NOUVELLE RÈGLE PRÉCISE à ajouter au système pour éviter cette erreur à l'avenir.
-                        Format strict de la règle: "NOUVELLE RÈGLE: [Condition des figures] -> [Nouvelle interprétation corrigée]."
-                        Sois concis et technique.
+                        TÂCHE: Explique brièvement l'erreur, puis propose UNE NOUVELLE RÈGLE précise au format:
+                        "NOUVELLE RÈGLE: [Condition] -> [Correction]."
                         """
-                        
-                        rep_corr = client.chat.completions.create(
-                            model="llama-3.1-8b-instant",
-                            messages=[{"role": "user", "content": correction_prompt}]
-                        )
-                        
-                        suggestion = rep_corr.choices[0].message.content
-                        st.success("✅ Analyse terminée !")
-                        st.markdown(suggestion)
-                        
-                        st.divider()
-                        if st.button("✅ Appliquer cette règle au système IA"):
-                            st.session_state.system_prompt += "\n\n" + suggestion
-                            st.success("🎉 Règle ajoutée ! L'IA est maintenant plus précise.")
+                        rep = client.chat.completions.create(model="llama-3.1-8b-instant", messages=[{"role": "user", "content": prompt_corr}])
+                        st.markdown(rep.choices[0].message.content)
+                        if st.button("✅ Appliquer cette règle au système"):
+                            st.session_state.system_prompt += "\n\n" + rep.choices[0].message.content
+                            st.success("🎉 Règle ajoutée !")
                             st.rerun()
                     except Exception as e:
                         st.error(f"Erreur: {e}")
             else:
-                st.warning("Veuillez remplir le score et les événements.")
+                st.warning("Remplis tous les champs et vérifie ta clé API.")
